@@ -3,6 +3,10 @@
 // Released under the GPL2 license
 
 #include <iostream>
+#include <stdio.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <signal.h>
 #include "argparse.hpp"
 #include "libretro.h"
 #include "util.h"
@@ -19,11 +23,31 @@ typedef RETRO_CALLCONV void (*core_set_audio_sample_batch_fn)(retro_audio_sample
 typedef RETRO_CALLCONV void (*core_set_input_poll_fn)(retro_input_poll_t);
 typedef RETRO_CALLCONV void (*core_set_input_state_fn)(retro_input_state_t);
 
+const std::unordered_map<std::string, unsigned> buttons = {
+	{"start",  RETRO_DEVICE_ID_JOYPAD_START},
+	{"select", RETRO_DEVICE_ID_JOYPAD_SELECT},
+	{"a",      RETRO_DEVICE_ID_JOYPAD_A},
+	{"b",      RETRO_DEVICE_ID_JOYPAD_B},
+	{"x",      RETRO_DEVICE_ID_JOYPAD_X},
+	{"y",      RETRO_DEVICE_ID_JOYPAD_Y},
+	{"up",     RETRO_DEVICE_ID_JOYPAD_UP},
+	{"down",   RETRO_DEVICE_ID_JOYPAD_DOWN},
+	{"left",   RETRO_DEVICE_ID_JOYPAD_LEFT},
+	{"right",  RETRO_DEVICE_ID_JOYPAD_RIGHT},
+};
+std::unordered_map<unsigned, unsigned> icmds;
 std::string systemdir;
 std::string outputdir = ".";
 unsigned frame_counter = 0;
 unsigned dump_every = 0;
 enum retro_pixel_format videofmt = RETRO_PIXEL_FORMAT_0RGB1555;
+
+void RETRO_CALLCONV logging_callback(enum retro_log_level level, const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	vprintf(fmt, args);
+    va_end(args);
+}
 
 bool RETRO_CALLCONV env_callback(unsigned cmd, void *data) {
 	switch (cmd) {
@@ -41,7 +65,8 @@ bool RETRO_CALLCONV env_callback(unsigned cmd, void *data) {
 	case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
 		return false;
 	case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
-		return false;   // TODO capture logs
+		((struct retro_log_callback*)data)->log = &logging_callback;
+		return true;
 	default:
 		return false;
 	}
@@ -68,32 +93,45 @@ size_t RETRO_CALLCONV audio_buffer(const int16_t *data, size_t frames) {
 	return frames;   // TODO: output audio
 }
 
-
 int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned index, unsigned id) {
+	if (icmds.count(frame_counter) && (icmds.at(frame_counter) & (1 << id)))
+		return 1;
 	// No input for now
 	return 0;
 }
 
+void alarmhandler(int signal) {
+	exit(-1);
+}
+
 int main(int argc, char **argv) {
+	// Set up alarm handler to ensure we can abort
+	signal(SIGALRM, alarmhandler);
+
 	argparse::ArgumentParser parser;
 
 	#ifndef STATIC_CORE
 	parser.addArgument("-c", "--core", 1, false);
 	#endif
 	parser.addArgument("-r", "--rom", 1, false);
-	parser.addArgument("-o", "--output", 1);
-	parser.addArgument("-s", "--system", 1);
+	parser.addArgument("-o", "--output", 1, false);
+	parser.addArgument("-s", "--system", 1, false);
 
 	// Max number of frames to run
 	parser.addArgument("-f", "--frames", 1);
+
+	// Frame timeout (if the core gets stuck for too long)
+	parser.addArgument("-t", "--timeout", 1);
 
 	// Dumps the specific frames (ie. 10 20)
 	parser.addArgument("--dump-frames", '*');
 	// Dumps a frame every N frames
 	parser.addArgument("--dump-frames-every", 1);
 
+	// Read input commands
+	parser.addArgument("-i", "--input", 1);
+
 	// TODO: dump other stuff
-	// TODO: simulate input
 
 	parser.parse(argc, (const char **)argv);
 
@@ -103,15 +141,30 @@ int main(int argc, char **argv) {
 	#ifndef STATIC_CORE
 	corefile = parser.retrieve<std::string>("c");
 	#endif
-	if (parser.exists("output"))
+	if (parser.gotArgument("output"))
 		outputdir = parser.retrieve<std::string>("output");
-	if (parser.exists("dump-frames"))
+	if (parser.gotArgument("dump-frames-every"))
 		dump_every = parser.retrieve<unsigned>("dump-frames-every");
 	unsigned maxframes = 300;
-	if (parser.exists("frames"))
+	if (parser.gotArgument("frames"))
 		maxframes = parser.retrieve<unsigned>("frames");
-	if (parser.exists("system"))
+	unsigned frametimeout = 5;
+	if (parser.gotArgument("timeout"))
+		frametimeout = parser.retrieve<unsigned>("timeout");
+	if (parser.gotArgument("system"))
 		systemdir = parser.retrieve<std::string>("system");
+	if (parser.gotArgument("input")) {
+		std::istringstream spr(parser.retrieve<std::string>("input"));
+		std::string entry;
+		while (spr >> entry) {
+			auto p = entry.find(':');
+			if (p != std::string::npos) {
+				std::string b = entry.substr(p+1);
+				if (buttons.count(b))
+					icmds[atoi(entry.c_str())] |= (1 << buttons.at(b));
+			}
+		}
+	}
 
 	core_functions_t *retrofns = load_core(corefile.c_str());
 	if (!retrofns) {
@@ -122,6 +175,9 @@ int main(int argc, char **argv) {
 	struct retro_system_info info;
 	retrofns->core_get_info(&info);
 	std::cout << "Loaded core " << info.library_name << " version " << info.library_version << std::endl;
+	std::cout << "Core needs fullpath " << info.need_fullpath << std::endl;
+	std::cout << "Running for " << maxframes << " frames with frame timeout of ";
+	std::cout << frametimeout << " seconds" << std::endl;
 
 	// Set the required callbacks
 	retrofns->core_set_env_function(&env_callback);
@@ -137,13 +193,33 @@ int main(int argc, char **argv) {
 	// Init the core and load the ROM
 	std::cout << "Loading ROM " << rom_file << std::endl;
 	struct retro_game_info gameinfo = {.path = rom_file.c_str(), .data = NULL, .size = 0, .meta = NULL};
-	retrofns->core_load_game(&gameinfo);
+	void *dptr = NULL;
+	if (!info.need_fullpath) {
+		FILE *fd = fopen(rom_file.c_str(), "rb");
+		fseek(fd, 0, SEEK_END);
+		gameinfo.size = ftell(fd);
+		fseek(fd, 0, SEEK_SET);
+		dptr = malloc(gameinfo.size);
+		fread(dptr, 1, gameinfo.size, fd);
+		fclose(fd);
+	}
+	gameinfo.data = dptr;
+
+	if (!retrofns->core_load_game(&gameinfo)) {
+		std::cout << "Failed to load the game, retro_load_game returned false!" << std::endl;
+		return -1;
+	}
+	retrofns->core_reset();
 
 	for (unsigned i = 0; i < maxframes; i++) {
+		alarm(frametimeout);
 		retrofns->core_run();
 	}
 
+	alarm(0);
 	retrofns->core_deinit();
+	if (dptr)
+		free(dptr);
 	free(retrofns);
 }
 

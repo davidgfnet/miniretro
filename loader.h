@@ -22,6 +22,7 @@ typedef struct {
 	core_action_fnt core_init;
 	core_action_fnt core_deinit;
 	core_action_fnt core_run;
+	core_action_fnt core_reset;
 	core_info_fnt   core_get_info;
 	core_loadg_fnt  core_load_game;
 	core_set_environment_fnt core_set_env_function;

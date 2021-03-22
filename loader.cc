@@ -18,15 +18,16 @@ core_functions_t *load_core(const char *filename) {
 	fns->core_init = (core_action_fnt)dlsym(libhandle, "retro_init");
 	fns->core_deinit = (core_action_fnt)dlsym(libhandle, "retro_deinit");
 	fns->core_run = (core_action_fnt)dlsym(libhandle, "retro_run");
+	fns->core_reset = (core_action_fnt)dlsym(libhandle, "retro_reset");
 	fns->core_get_info = (core_info_fnt)dlsym(libhandle, "retro_get_system_info");
 	fns->core_load_game = (core_loadg_fnt)dlsym(libhandle, "retro_load_game");
 
 	fns->core_set_env_function = (core_set_environment_fnt)dlsym(libhandle, "retro_set_environment");
 	fns->core_set_video_refresh_function = (core_set_video_refresh_fnt)dlsym(libhandle, "retro_set_video_refresh");
-	fns->core_set_audio_sample_function = (core_set_audio_sample_fnt)dlsym(libhandle, "retro_set_input_poll");
-	fns->core_set_audio_sample_batch_function = (core_set_audio_sample_batch_fnt)dlsym(libhandle, "retro_set_input_state");
-	fns->core_set_input_poll_function = (core_set_input_poll_fnt)dlsym(libhandle, "retro_set_audio_sample");
-	fns->core_set_input_state_function = (core_set_input_state_fnt)dlsym(libhandle, "retro_set_audio_sample_batch");
+	fns->core_set_audio_sample_function = (core_set_audio_sample_fnt)dlsym(libhandle, "retro_set_audio_sample");
+	fns->core_set_audio_sample_batch_function = (core_set_audio_sample_batch_fnt)dlsym(libhandle, "retro_set_audio_sample_batch");
+	fns->core_set_input_poll_function = (core_set_input_poll_fnt)dlsym(libhandle, "retro_set_input_poll");
+	fns->core_set_input_state_function = (core_set_input_state_fnt)dlsym(libhandle, "retro_set_input_state");
 	fns->handle = libhandle;
 
 	return fns;
@@ -50,6 +51,7 @@ core_functions_t *load_core(const char *filename) {
 	fns->core_init = &retro_init;
 	fns->core_deinit = &retro_deinit;
 	fns->core_run = &retro_run;
+	fns->core_reset = &retro_reset;
 	fns->core_get_info = &retro_get_system_info;
 	fns->core_load_game = &retro_load_game;
 
