@@ -36,14 +36,18 @@ def read_results(path):
   
 
 if args.subparser == "report":
+  failed = 0
   romlist = json.load(open(os.path.join(args.results, "results.json")))
   ret =  "<html><body><h1>Results for %d ROMs</h1>" % len(romlist)
+  ret += "<h3>Failed: %d</h3>"
   ret += "<table>"
   for romid in romlist:
     res = read_results(os.path.join(args.results, romid))
     ret += "<tr><td>%s</td><td>Exit code: %d</td><td>Runtime: %ds</td><td><img src=\"data:image/png;base64, %s\"/></td></tr>" % (
       res["rom"], res["exitcode"], res["runtime"], res["image"])
+    failed += 1 if res["exitcode"] else 0
   ret += "</table></body></html>"
+  ret = ret % failed
   with open(args.output, "w") as ofd:
     ofd.write(ret)
 
@@ -56,6 +60,10 @@ elif args.subparser == "compare":
   # Generate a table that contains all the ROMs and fill in results
   ret =  "<html><body><h1>Results for %d ROMs</h1>" % len(romlist)
   ret += "<table>"
+  ret += "<tr><th>ROM name</th>"
+  for result in args.results:
+    ret += "<th>%s</th>" % result
+  ret += "</tr>\n"
   for romid in sorted(allroms):
     results = []
     for result in args.results:
@@ -63,8 +71,11 @@ elif args.subparser == "compare":
     romname = [r["rom"] for r in results if r][0]
     ret += "<tr><td>%s</td>" % romname
     for r in results:
-      ret += "<td>Exit code: %d<br/>Runtime: %f<br/><img src=\"data:image/png;base64, %s\"/></td>" % (
-        r["exitcode"], r["runtime"], r["image"])
+      if r is None:
+        ret += "<td>[Missing data]</td>"
+      else:
+        ret += "<td>Exit code: %d<br/>Runtime: %f<br/><img src=\"data:image/png;base64, %s\"/></td>" % (
+          r["exitcode"], r["runtime"], r["image"])
     ret += "</tr>\n"
   ret += "</table></body></html>"
   with open(args.output, "w") as ofd:

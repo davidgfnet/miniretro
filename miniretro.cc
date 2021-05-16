@@ -40,6 +40,7 @@ std::string systemdir;
 std::string outputdir = ".";
 unsigned frame_counter = 0;
 unsigned dump_every = 0;
+unsigned save_dump_every = 0;
 enum retro_pixel_format videofmt = RETRO_PIXEL_FORMAT_0RGB1555;
 
 void RETRO_CALLCONV logging_callback(enum retro_log_level level, const char *fmt, ...) {
@@ -128,6 +129,9 @@ int main(int argc, char **argv) {
 	// Dumps a frame every N frames
 	parser.addArgument("--dump-frames-every", 1);
 
+	// Dumps state saves every N frames
+	parser.addArgument("--dump-savestates-every", 1);
+
 	// Read input commands
 	parser.addArgument("-i", "--input", 1);
 
@@ -145,6 +149,8 @@ int main(int argc, char **argv) {
 		outputdir = parser.retrieve<std::string>("output");
 	if (parser.gotArgument("dump-frames-every"))
 		dump_every = parser.retrieve<unsigned>("dump-frames-every");
+	if (parser.gotArgument("dump-savestates-every"))
+		save_dump_every = parser.retrieve<unsigned>("dump-savestates-every");
 	unsigned maxframes = 300;
 	if (parser.gotArgument("frames"))
 		maxframes = parser.retrieve<unsigned>("frames");
@@ -214,6 +220,20 @@ int main(int argc, char **argv) {
 	for (unsigned i = 0; i < maxframes; i++) {
 		alarm(frametimeout);
 		retrofns->core_run();
+
+		if (save_dump_every && (frame_counter % save_dump_every) == 0) {
+			char filename[PATH_MAX];
+			sprintf(filename, "%s/state%06u.bin", outputdir.c_str(), frame_counter);
+			size_t sersz = retrofns->core_serialize_size();
+			void *serstate = malloc(sersz);
+			retrofns->core_serialize(serstate, sersz);
+			FILE *fd = fopen(filename, "wb");
+			if (fd) {
+				fwrite(serstate, 1, sersz, fd);
+				fclose(fd);
+			}
+			free(serstate);
+		}
 	}
 
 	alarm(0);

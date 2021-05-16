@@ -28,6 +28,9 @@ core_functions_t *load_core(const char *filename) {
 	fns->core_set_audio_sample_batch_function = (core_set_audio_sample_batch_fnt)dlsym(libhandle, "retro_set_audio_sample_batch");
 	fns->core_set_input_poll_function = (core_set_input_poll_fnt)dlsym(libhandle, "retro_set_input_poll");
 	fns->core_set_input_state_function = (core_set_input_state_fnt)dlsym(libhandle, "retro_set_input_state");
+
+	fns->core_serialize = (core_serialize_fnt)dlsym(libhandle, "retro_serialize");
+	fns->core_serialize_size = (core_serialize_size_fnt)dlsym(libhandle, "retro_serialize_size");
 	fns->handle = libhandle;
 
 	return fns;
@@ -61,6 +64,9 @@ core_functions_t *load_core(const char *filename) {
 	fns->core_set_audio_sample_batch_function = &retro_set_audio_sample_batch;
 	fns->core_set_input_poll_function = &retro_set_input_poll;
 	fns->core_set_input_state_function = &retro_set_input_state;
+
+	fns->core_serialize = &retro_serialize;
+	fns->core_serialize_size = &retro_serialize_size;
 
 	return fns;
 }

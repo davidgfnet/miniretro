@@ -17,6 +17,8 @@ typedef RETRO_CALLCONV void (*core_set_audio_sample_fnt)(retro_audio_sample_t);
 typedef RETRO_CALLCONV void (*core_set_audio_sample_batch_fnt)(retro_audio_sample_batch_t);
 typedef RETRO_CALLCONV void (*core_set_input_poll_fnt)(retro_input_poll_t);
 typedef RETRO_CALLCONV void (*core_set_input_state_fnt)(retro_input_state_t);
+typedef RETRO_CALLCONV bool (*core_serialize_fnt)(void *data, size_t size);
+typedef RETRO_CALLCONV size_t (*core_serialize_size_fnt)(void);
 
 typedef struct {
 	core_action_fnt core_init;
@@ -31,6 +33,8 @@ typedef struct {
 	core_set_audio_sample_batch_fnt core_set_audio_sample_batch_function;
 	core_set_input_poll_fnt core_set_input_poll_function;
 	core_set_input_state_fnt core_set_input_state_function;
+	core_serialize_fnt core_serialize;
+	core_serialize_size_fnt core_serialize_size;
 
 	void *handle;
 } core_functions_t;

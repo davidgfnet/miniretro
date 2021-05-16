@@ -71,10 +71,11 @@ run_results = []
 for r in tqdm(results):
   r.wait()
   run_results.append(r.get())
+  # Update the results every time so that we can see intermediate results
+  with open(os.path.join(args.output, "results.json"), "w") as metafd:
+    metafd.write(json.dumps(run_results))
 
 tp.close()
 tp.join()
 
-with open(os.path.join(args.output, "results.json"), "w") as metafd:
-  metafd.write(json.dumps(run_results))
 
