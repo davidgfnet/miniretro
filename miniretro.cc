@@ -102,6 +102,7 @@ int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned inde
 }
 
 void alarmhandler(int signal) {
+	std::cerr << "Alarm triggered" << std::endl;
 	exit(-1);
 }
 
@@ -117,6 +118,9 @@ int main(int argc, char **argv) {
 	parser.addArgument("-r", "--rom", 1, false);
 	parser.addArgument("-o", "--output", 1, false);
 	parser.addArgument("-s", "--system", 1, false);
+
+	// Disables alarm (for debugging)
+	parser.addArgument("--no-alarm", '*');
 
 	// Max number of frames to run
 	parser.addArgument("-f", "--frames", 1);
@@ -171,6 +175,7 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
+	bool use_alarm = !parser.gotArgument("no-alarm");
 
 	core_functions_t *retrofns = load_core(corefile.c_str());
 	if (!retrofns) {
@@ -218,7 +223,8 @@ int main(int argc, char **argv) {
 	retrofns->core_reset();
 
 	for (unsigned i = 0; i < maxframes; i++) {
-		alarm(frametimeout);
+		if (use_alarm)
+			alarm(frametimeout);
 		retrofns->core_run();
 
 		if (save_dump_every && (frame_counter % save_dump_every) == 0) {
