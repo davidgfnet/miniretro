@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+
+    <title>Miniretro report</title>
+  </head>
+  <body class="py-4">
+    <div class="container">
+      <h1>{{title}}</h1>
+      {% if subtitle %}
+      <h3>{{ subtitle }}</h3>
+      {% endif %}
+
+      {% if compare %}
+        {% for entry in results %}
+        <div class="row mb-3">
+          <div class="col-3 themed-grid-col">{{ entry["rom"] }}</div>
+          <div class="col-9 themed-grid-col {{ 'bg-danger' if entry["imgdiff"] else '' }}">
+          {% for run in entry["results"] %}
+            <div class="d-inline-block" >
+            {% if run %}
+              Runtime: {{ "%0.2f" % run["runtime"] }}s <br/>
+              Exit code: {{ run["exitcode"] }} <br/>
+              {% for img in run["images"] %}
+                <img src="data:image/png;base64, {{ base64fn(img["data"]) }}" alt="{{ img["name"] }}"/> <br/>
+              {% endfor %}
+            {% else %}
+              Missing data
+            {% endif %}
+            </div>
+          {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        {% for entry in results %}
+        <div class="row mb-3">
+          <div class="col-4 themed-grid-col">{{ entry["rom"] }} <br/>
+            Runtime: {{ "%0.2f" % entry["runtime"] }}s <br/>
+            Exit code: {{ entry["exitcode"] }}</div>
+          <div class="col-8 themed-grid-col">
+          {% for img in entry["images"] %}
+            <img src="data:image/png;base64, {{ base64fn(img["data"]) }}" alt="{{ img["name"] }}"/>
+          {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+  </body>
+</html>
+
