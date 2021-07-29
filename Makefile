@@ -5,7 +5,8 @@ LDFLAGS=-ldl
 
 all:
 	$(CXX) -o miniretro miniretro.cc util.cc loader.cc $(LDFLAGS) $(CXXFLAGS)
+	$(CXX) -o dualretro dualretro.cc util.cc loader.cc $(LDFLAGS) $(CXXFLAGS)
 
 clean:
-	rm -f miniretro
+	rm -f miniretro dualretro
 

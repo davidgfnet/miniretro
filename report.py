@@ -22,9 +22,11 @@ comparep = subparsers.add_parser('compare')
 
 reportp.add_argument('--results', dest='results', required=True, help='Result directory to extract data from')
 reportp.add_argument('--output', dest='output', required=True, help='Output report file')
+reportp.add_argument('--imgcnt', dest='imgcnt', type=int, default=10, help='Number of images to show')
 comparep.add_argument('--results', dest='results', nargs='+', help='Result directories to compare data from')
 comparep.add_argument('--output', dest='output', required=True, help='Output report file')
 comparep.add_argument('--onlydiff', dest='onlydiff', type=bool, default=False, help='Only report differences')
+comparep.add_argument('--imgcnt', dest='imgcnt', type=int, default=3, help='Number of images to show')
 args = parser.parse_args()
 
 t = Template(open("report.html", "r").read())
@@ -35,7 +37,7 @@ def read_results(path):
     return None
 
   romres = json.load(open(resjfile))
-  images = sorted([f for f in os.listdir(os.path.join(path)) if f.endswith(".png")])
+  images = sorted([f for f in os.listdir(os.path.join(path)) if f.endswith(".png")])[-args.imgcnt:]
   romres["images"] = [
     {
       "data": (open(os.path.join(path, im), "rb").read()) if im else badimg,
