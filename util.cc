@@ -3,6 +3,7 @@
 // Released under the GPL2 license
 
 #include <cstdlib>
+#include <unistd.h>
 #include "util.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -51,6 +52,17 @@ void *image_convert(const void *data, unsigned width, unsigned height, size_t pi
 void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, const char *filename) {
 	void *convimg = image_convert(data, width, height, pitch, fmt);
 	stbi_write_png(filename, width, height, 3, convimg, 3 * width);
+	free(convimg);
+}
+
+static void cb_write(void *context, void *data, int size) {
+	int fd = *(int*)context;
+	write(fd, data, size);
+}
+
+void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, int fd) {
+	void *convimg = image_convert(data, width, height, pitch, fmt);
+	stbi_write_bmp_to_func(cb_write, &fd, width, height, 3, convimg);
 	free(convimg);
 }
 

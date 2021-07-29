@@ -31,6 +31,7 @@ core_functions_t *load_core(const char *filename) {
 
 	fns->core_serialize = (core_serialize_fnt)dlsym(libhandle, "retro_serialize");
 	fns->core_serialize_size = (core_serialize_size_fnt)dlsym(libhandle, "retro_serialize_size");
+	fns->core_get_system_av_info = (core_get_system_av_info_fnt)dlsym(libhandle, "retro_get_system_av_info");
 	fns->handle = libhandle;
 
 	return fns;
@@ -67,6 +68,7 @@ core_functions_t *load_core(const char *filename) {
 
 	fns->core_serialize = &retro_serialize;
 	fns->core_serialize_size = &retro_serialize_size;
+	fns->core_get_system_av_info = &retro_get_system_av_info;
 
 	return fns;
 }

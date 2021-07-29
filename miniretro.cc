@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 #include <signal.h>
 #include "argparse.hpp"
 #include "libretro.h"
@@ -42,6 +44,9 @@ unsigned frame_counter = 0;
 unsigned dump_every = 0;
 unsigned save_dump_every = 0;
 enum retro_pixel_format videofmt = RETRO_PIXEL_FORMAT_0RGB1555;
+struct retro_system_av_info avinfo;
+pid_t ffpid = 0;
+int ffpipev[2] = {0};
 
 void RETRO_CALLCONV logging_callback(enum retro_log_level level, const char *fmt, ...) {
 	va_list args;
@@ -75,11 +80,16 @@ bool RETRO_CALLCONV env_callback(unsigned cmd, void *data) {
 
 void RETRO_CALLCONV video_update(const void *data, unsigned width, unsigned height, size_t pitch) {
 	frame_counter++;
+	if (!data)
+		return;
+
 	if (dump_every && (frame_counter % dump_every) == 0) {
 		char filename[PATH_MAX];
 		sprintf(filename, "%s/screenshot%06u.png", outputdir.c_str(), frame_counter);
 		dump_image(data, width, height, pitch, videofmt, filename);
 	}
+	if (ffpid)
+		dump_image(data, width, height, pitch, videofmt, ffpipev[1]);
 }
 
 void RETRO_CALLCONV input_poll() {
@@ -87,10 +97,12 @@ void RETRO_CALLCONV input_poll() {
 }
 
 void RETRO_CALLCONV single_sample(int16_t left, int16_t right) {
-	// TODO: output audio
+	//int16_t buf[2] = {left, right};
+	//write(ffpipea[1], buf, sizeof(buf));
 }
 
 size_t RETRO_CALLCONV audio_buffer(const int16_t *data, size_t frames) {
+	//write(ffpipea[1], data, frames*2*sizeof(int16_t));
 	return frames;   // TODO: output audio
 }
 
@@ -132,6 +144,8 @@ int main(int argc, char **argv) {
 	parser.addArgument("--dump-frames", '*');
 	// Dumps a frame every N frames
 	parser.addArgument("--dump-frames-every", 1);
+	// Generates a video out of the image and video stream
+	parser.addArgument("--dump-video", 1);
 
 	// Dumps state saves every N frames
 	parser.addArgument("--dump-savestates-every", 1);
@@ -221,6 +235,27 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 	retrofns->core_reset();
+	retrofns->core_get_system_av_info(&avinfo);
+
+	if (parser.gotArgument("dump-video")) {
+		std::string videop = parser.retrieve<std::string>("dump-video");
+		pipe(ffpipev);
+		ffpid = fork();
+		if (ffpid) {
+			close(ffpipev[0]);
+		}
+		else {
+			close(ffpipev[1]);
+			dup2(ffpipev[0], 0);
+
+			execlp("ffmpeg", "ffmpeg",
+				"-f", "image2pipe",
+				"-i", "-", "-vf", "format=yuv444p",
+				"-framerate", std::to_string(avinfo.timing.fps).c_str(),
+				"-c:v", "libx264",
+				videop.c_str(), NULL);
+		}
+	}
 
 	for (unsigned i = 0; i < maxframes; i++) {
 		if (use_alarm)
@@ -247,6 +282,11 @@ int main(int argc, char **argv) {
 	if (dptr)
 		free(dptr);
 	free(retrofns);
+
+	if (ffpid) {
+		close(ffpipev[1]);
+		waitpid(ffpid, NULL, 0);
+	}
 }
 
 
