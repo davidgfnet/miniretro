@@ -45,8 +45,10 @@ unsigned dump_every = 0;
 unsigned save_dump_every = 0;
 enum retro_pixel_format videofmt = RETRO_PIXEL_FORMAT_0RGB1555;
 struct retro_system_av_info avinfo;
-pid_t ffpid = 0;
+pid_t ffpidv = 0;
 int ffpipev[2] = {0};
+pid_t ffpida = 0;
+int ffpipea[2] = {0};
 
 void RETRO_CALLCONV logging_callback(enum retro_log_level level, const char *fmt, ...) {
 	va_list args;
@@ -88,7 +90,7 @@ void RETRO_CALLCONV video_update(const void *data, unsigned width, unsigned heig
 		sprintf(filename, "%s/screenshot%06u.png", outputdir.c_str(), frame_counter);
 		dump_image(data, width, height, pitch, videofmt, filename);
 	}
-	if (ffpid)
+	if (ffpidv)
 		dump_image(data, width, height, pitch, videofmt, ffpipev[1]);
 }
 
@@ -97,13 +99,16 @@ void RETRO_CALLCONV input_poll() {
 }
 
 void RETRO_CALLCONV single_sample(int16_t left, int16_t right) {
-	//int16_t buf[2] = {left, right};
-	//write(ffpipea[1], buf, sizeof(buf));
+	if (ffpida) {
+		int16_t buf[2] = {left, right};
+		write(ffpipea[1], buf, sizeof(buf));
+	}
 }
 
 size_t RETRO_CALLCONV audio_buffer(const int16_t *data, size_t frames) {
-	//write(ffpipea[1], data, frames*2*sizeof(int16_t));
-	return frames;   // TODO: output audio
+	if (ffpida)
+		write(ffpipea[1], data, frames*2*sizeof(int16_t));
+	return frames;
 }
 
 int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned index, unsigned id) {
@@ -144,8 +149,9 @@ int main(int argc, char **argv) {
 	parser.addArgument("--dump-frames", '*');
 	// Dumps a frame every N frames
 	parser.addArgument("--dump-frames-every", 1);
-	// Generates a video out of the image and video stream
+	// Generates a video/audio from the video/audio streams
 	parser.addArgument("--dump-video", 1);
+	parser.addArgument("--dump-audio", 1);
 
 	// Dumps state saves every N frames
 	parser.addArgument("--dump-savestates-every", 1);
@@ -240,8 +246,8 @@ int main(int argc, char **argv) {
 	if (parser.gotArgument("dump-video")) {
 		std::string videop = parser.retrieve<std::string>("dump-video");
 		pipe(ffpipev);
-		ffpid = fork();
-		if (ffpid) {
+		ffpidv = fork();
+		if (ffpidv) {
 			close(ffpipev[0]);
 		}
 		else {
@@ -250,10 +256,31 @@ int main(int argc, char **argv) {
 
 			execlp("ffmpeg", "ffmpeg",
 				"-f", "image2pipe",
-				"-i", "-", "-vf", "format=yuv444p",
 				"-framerate", std::to_string(avinfo.timing.fps).c_str(),
+				"-i", "-", "-vf", "format=yuv444p",
 				"-c:v", "libx264",
 				videop.c_str(), NULL);
+		}
+	}
+
+	if (parser.gotArgument("dump-audio")) {
+		std::string audiop = parser.retrieve<std::string>("dump-audio");
+		pipe(ffpipea);
+		ffpida = fork();
+		if (ffpida) {
+			close(ffpipea[0]);
+		}
+		else {
+			close(ffpipea[1]);
+			dup2(ffpipea[0], 0);
+
+			execlp("ffmpeg", "ffmpeg",
+				"-f", "s16le", "-ac", "2",
+				"-ar", std::to_string(avinfo.timing.sample_rate).c_str(),
+				"-i", "-",
+				"-ar", "44.1k",
+				"-c:a", "libvorbis",
+				audiop.c_str(), NULL);
 		}
 	}
 
@@ -283,9 +310,13 @@ int main(int argc, char **argv) {
 		free(dptr);
 	free(retrofns);
 
-	if (ffpid) {
+	if (ffpida) {
+		close(ffpipea[1]);
+		waitpid(ffpida, NULL, 0);
+	}
+	if (ffpidv) {
 		close(ffpipev[1]);
-		waitpid(ffpid, NULL, 0);
+		waitpid(ffpidv, NULL, 0);
 	}
 }
 
