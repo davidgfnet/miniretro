@@ -254,7 +254,7 @@ int main(int argc, char **argv) {
 			close(ffpipev[1]);
 			dup2(ffpipev[0], 0);
 
-			execlp("ffmpeg", "ffmpeg",
+			execlp("ffmpeg", "ffmpeg", "-nostats",
 				"-f", "image2pipe",
 				"-framerate", std::to_string(avinfo.timing.fps).c_str(),
 				"-i", "-", "-vf", "format=yuv444p",
@@ -274,7 +274,7 @@ int main(int argc, char **argv) {
 			close(ffpipea[1]);
 			dup2(ffpipea[0], 0);
 
-			execlp("ffmpeg", "ffmpeg",
+			execlp("ffmpeg", "ffmpeg", "-nostats",
 				"-f", "s16le", "-ac", "2",
 				"-ar", std::to_string(avinfo.timing.sample_rate).c_str(),
 				"-i", "-",

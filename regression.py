@@ -21,6 +21,7 @@ parser.add_argument('--system', dest='system', required=True, help='system direc
 parser.add_argument('--driver', dest='driver', type=str, default="./miniretro", help='Miniretro driver commandline')
 parser.add_argument('--frames', dest='frames', type=int, default=3200, help='Frames per game to run')
 parser.add_argument('--capture', dest='capture', type=int, default=1, help='Number of frames to capture')
+parser.add_argument('--record', dest='record', action="store_true", help='Record video and audio')
 parser.add_argument('--threads', dest='threads', type=int, default=8, help='CPUs (threads) to use')
 parser.add_argument('--input', dest='infiles', nargs='+', help='Set of files or directories to use as test files')
 parser.add_argument('--output', dest='output', required=True, help='Output report file (either .txt or .html)')
@@ -46,6 +47,17 @@ def runcore(rom):
   romid = hashlib.sha1(open(rom, "rb").read(_ROM_HASH_PREFIX)).hexdigest()[:12]
   opath = os.path.join(args.output, romid)
   os.mkdir(opath)
+  vfile = os.path.join(opath, "video.mp4")
+  afile = os.path.join(opath, "audio.ogg")
+  rfile = os.path.join(opath, "video.mkv")
+  eargs = []
+
+  if args.record:
+    eargs = [
+      "--dump-video", vfile,
+      "--dump-audio", afile,
+    ]
+
   starttime = time.time()
   with open(os.path.join(opath, "stdout"), "wb") as stdout:
     with open(os.path.join(opath, "stderr"), "wb") as stderr:
@@ -57,7 +69,8 @@ def runcore(rom):
          "--system", args.system,
          "--input", " ".join(ctrl),
          "--dump-frames-every", str(frameevery),
-         "--frames", str(args.frames + 3)],   # Ensure we get a final frame
+         "--frames", str(args.frames + 3),  # Ensure we get a final frame
+         ] + eargs,
         stdout=stdout, stderr=stderr,
         preexec_fn=lambda : os.nice(10))
       spcall.wait()
@@ -67,6 +80,18 @@ def runcore(rom):
       "exitcode": spcall.returncode,
       "rom": os.path.basename(rom),
     }))
+  if args.record and os.path.isfile(vfile) and os.path.isfile(afile):
+    spcall = subprocess.Popen(
+      ["ffmpeg",
+       "-i", vfile, "-i", afile,
+       "-c:v", "copy", "-c:a", "copy",
+       rfile],
+       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+       preexec_fn=lambda : os.nice(10))
+    spcall.wait()
+    os.unlink(vfile)
+    os.unlink(afile)
+
   return romid
 
 results = []
