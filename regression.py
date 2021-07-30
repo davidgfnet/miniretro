@@ -13,6 +13,8 @@ from multiprocessing.pool import ThreadPool
 import argparse, os, subprocess, random, hashlib, time, json
 from tqdm import tqdm
 
+_ROM_HASH_PREFIX = 32 * 1024 * 1024
+
 parser = argparse.ArgumentParser(prog='regression.py')
 parser.add_argument('--core', dest='core', required=True, help='Core (.so file) to test')
 parser.add_argument('--system', dest='system', required=True, help='system directoy')
@@ -41,7 +43,7 @@ ctrl = ["%d:a %d:a %d:a %d:a %d:start %d:start %d:start %d:start" % (
 frameevery = args.frames // args.capture
 
 def runcore(rom):
-  romid = hashlib.sha1(open(rom, "rb").read()).hexdigest()[:12]
+  romid = hashlib.sha1(open(rom, "rb").read(_ROM_HASH_PREFIX)).hexdigest()[:12]
   opath = os.path.join(args.output, romid)
   os.mkdir(opath)
   starttime = time.time()
@@ -55,7 +57,7 @@ def runcore(rom):
          "--system", args.system,
          "--input", " ".join(ctrl),
          "--dump-frames-every", str(frameevery),
-         "--frames", str(args.frames)],
+         "--frames", str(args.frames + 3)],   # Ensure we get a final frame
         stdout=stdout, stderr=stderr,
         preexec_fn=lambda : os.nice(10))
       spcall.wait()
