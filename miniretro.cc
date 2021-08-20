@@ -75,6 +75,13 @@ bool RETRO_CALLCONV env_callback(unsigned cmd, void *data) {
 	case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
 		((struct retro_log_callback*)data)->log = &logging_callback;
 		return true;
+	case RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION:
+		*((unsigned*)data) = 1;
+		return true;
+	case RETRO_ENVIRONMENT_SET_MESSAGE:
+	case RETRO_ENVIRONMENT_SET_MESSAGE_EXT:
+		std::cerr << "[Core message] " << ((struct retro_message*)data)->msg << std::endl;
+		return true;
 	default:
 		return false;
 	}
@@ -156,6 +163,9 @@ int main(int argc, char **argv) {
 	// Dumps state saves every N frames
 	parser.addArgument("--dump-savestates-every", 1);
 
+	// Loads state at the beggining
+	parser.addArgument("--load-savestate", 1);
+
 	// Read input commands
 	parser.addArgument("-i", "--input", 1);
 
@@ -164,7 +174,7 @@ int main(int argc, char **argv) {
 	parser.parse(argc, (const char **)argv);
 
 	// Read the args
-	std::string corefile;
+	std::string corefile, statefile;
 	std::string rom_file = parser.retrieve<std::string>("r");
 	#ifndef STATIC_CORE
 	corefile = parser.retrieve<std::string>("c");
@@ -175,6 +185,8 @@ int main(int argc, char **argv) {
 		dump_every = parser.retrieve<unsigned>("dump-frames-every");
 	if (parser.gotArgument("dump-savestates-every"))
 		save_dump_every = parser.retrieve<unsigned>("dump-savestates-every");
+	if (parser.gotArgument("load-savestate"))
+		statefile = parser.retrieve<std::string>("load-savestate");
 	unsigned maxframes = 300;
 	if (parser.gotArgument("frames"))
 		maxframes = parser.retrieve<unsigned>("frames");
@@ -281,6 +293,21 @@ int main(int argc, char **argv) {
 				"-ar", "44.1k",
 				"-c:a", "libvorbis",
 				audiop.c_str(), NULL);
+		}
+	}
+
+	if (!statefile.empty()) {
+		size_t ssize = retrofns->core_serialize_size();
+		FILE *fd = fopen(statefile.c_str(), "rb");
+		if (fd) {
+			void *serstate = malloc(ssize);
+			size_t bytecount = fread(serstate, 1, ssize, fd);
+			fclose(fd);
+			if (!retrofns->core_unserialize(serstate, bytecount)) {
+				std::cout << "Failed to load savestate " << statefile << std::endl;
+				return -1;
+			}
+			free(serstate);
 		}
 	}
 

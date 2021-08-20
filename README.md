@@ -18,7 +18,7 @@ Building
 
 Just do a "make" and you are good. If you want to cross-build the tool use
 something like "make CXX=arm-linux-g++". You will need to build the cores
-separatedly (or perhaps download them from libretro's build bot at
+separately (or perhaps download them from libretro's build bot at
 https://buildbot.libretro.com/nightly/).
 
 It is possible to run a statically built core too (that is, core.a sort of
@@ -46,7 +46,7 @@ This runs a ROM using a the given core for 3600 frames (that's 1 minute if
 the core runs at 60 fps) and dumps an image every 60 frames (every second).
 
 
-Regresison testing
+Regression testing
 ------------------
 
 This was built with the intent to automatically test cores against a testing

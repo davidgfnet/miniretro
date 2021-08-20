@@ -36,6 +36,7 @@ typedef struct {
 	core_set_input_state_fnt core_set_input_state_function;
 	core_serialize_fnt core_serialize;
 	core_serialize_size_fnt core_serialize_size;
+	core_serialize_fnt core_unserialize;
 	core_get_system_av_info_fnt core_get_system_av_info;
 
 	void *handle;
