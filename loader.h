@@ -19,6 +19,7 @@ typedef RETRO_CALLCONV void (*core_set_input_poll_fnt)(retro_input_poll_t);
 typedef RETRO_CALLCONV void (*core_set_input_state_fnt)(retro_input_state_t);
 typedef RETRO_CALLCONV bool (*core_serialize_fnt)(void *data, size_t size);
 typedef RETRO_CALLCONV size_t (*core_serialize_size_fnt)(void);
+typedef RETRO_CALLCONV bool (*core_unserialize_fnt)(const void *data, size_t size);
 typedef RETRO_CALLCONV void (*core_get_system_av_info_fnt)(struct retro_system_av_info *info);
 
 typedef struct {
@@ -36,7 +37,7 @@ typedef struct {
 	core_set_input_state_fnt core_set_input_state_function;
 	core_serialize_fnt core_serialize;
 	core_serialize_size_fnt core_serialize_size;
-	core_serialize_fnt core_unserialize;
+	core_unserialize_fnt core_unserialize;
 	core_get_system_av_info_fnt core_get_system_av_info;
 
 	void *handle;
