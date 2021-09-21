@@ -10,9 +10,6 @@ void dump_image(const void *data, unsigned width, unsigned height, size_t pitch,
 
 template <unsigned int factor>
 static void *image_scale(const void *data, unsigned width, unsigned height) {
-	if (factor < 2)
-		return data;
-
 	uint8_t *pixels = (uint8_t*)data;
 	void *ret = malloc(width * height * 3 * factor * factor);
 	uint8_t *out = (uint8_t*)ret;

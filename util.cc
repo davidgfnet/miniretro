@@ -59,7 +59,7 @@ img_conv scalers[] = {
 
 void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, unsigned factor, const char *filename) {
 	void *convimg = image_convert(data, width, height, pitch, fmt);
-	void *scalimg = scalers[factor](convimg, width, height);
+	void *scalimg = factor > 1 ? scalers[factor](convimg, width, height) : convimg;
 	stbi_write_png(filename, width * factor, height * factor, 3, scalimg, 3 * width * factor);
 	free(convimg);
 	if (scalimg != convimg)
@@ -73,7 +73,7 @@ static void cb_write(void *context, void *data, int size) {
 
 void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, unsigned factor, int fd) {
 	void *convimg = image_convert(data, width, height, pitch, fmt);
-	void *scalimg = scalers[factor](convimg, width, height);
+	void *scalimg = factor > 1 ? scalers[factor](convimg, width, height) : convimg;
 	stbi_write_bmp_to_func(cb_write, &fd, width * factor, height * factor, 3, scalimg);
 	free(convimg);
 	if (scalimg != convimg)
