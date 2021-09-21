@@ -74,6 +74,8 @@ def runcore(rom):
         stdout=stdout, stderr=stderr,
         preexec_fn=lambda : os.nice(10))
       spcall.wait()
+  subprocess.Popen(["gzip", "-5", os.path.join(opath, "stdout")]).wait()
+  subprocess.Popen(["gzip", "-5", os.path.join(opath, "stderr")]).wait()
   with open(os.path.join(opath, "results.json"), "w") as metafd:
     metafd.write(json.dumps({
       "runtime": time.time() - starttime,

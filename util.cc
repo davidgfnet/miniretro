@@ -13,6 +13,8 @@ typedef struct {
 	uint8_t r, g, b;
 } pixel_t;
 
+typedef void* (*img_conv)(const void *data, unsigned width, unsigned height);
+
 void *image_convert(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt) {
 	pixel_t *buffer = (pixel_t*)malloc(width * height * 3);
 	uint8_t *inbytes = (uint8_t*)data;
@@ -49,10 +51,19 @@ void *image_convert(const void *data, unsigned width, unsigned height, size_t pi
 	return buffer;
 }
 
-void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, const char *filename) {
+img_conv scalers[] = {
+	NULL,
+	image_scale<1>, image_scale<2>, image_scale<3>, image_scale<4>,
+	image_scale<5>, image_scale<6>, image_scale<7>, image_scale<8>,
+};
+
+void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, unsigned factor, const char *filename) {
 	void *convimg = image_convert(data, width, height, pitch, fmt);
-	stbi_write_png(filename, width, height, 3, convimg, 3 * width);
+	void *scalimg = scalers[factor](convimg, width, height);
+	stbi_write_png(filename, width * factor, height * factor, 3, scalimg, 3 * width * factor);
 	free(convimg);
+	if (scalimg != convimg)
+		free(scalimg);
 }
 
 static void cb_write(void *context, void *data, int size) {
@@ -60,9 +71,12 @@ static void cb_write(void *context, void *data, int size) {
 	write(fd, data, size);
 }
 
-void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, int fd) {
+void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, unsigned factor, int fd) {
 	void *convimg = image_convert(data, width, height, pitch, fmt);
-	stbi_write_bmp_to_func(cb_write, &fd, width, height, 3, convimg);
+	void *scalimg = scalers[factor](convimg, width, height);
+	stbi_write_bmp_to_func(cb_write, &fd, width * factor, height * factor, 3, scalimg);
 	free(convimg);
+	if (scalimg != convimg)
+		free(scalimg);
 }
 

@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <math.h>
 #include "argparse.hpp"
 #include "libretro.h"
 #include "util.h"
@@ -40,9 +41,11 @@ const std::unordered_map<std::string, unsigned> buttons = {
 std::unordered_map<unsigned, unsigned> icmds;
 std::string systemdir;
 std::string outputdir = ".";
+std::string vaapidev;
 unsigned frame_counter = 0;
 unsigned dump_every = 0;
 unsigned save_dump_every = 0;
+unsigned scalf = 1;
 enum retro_pixel_format videofmt = RETRO_PIXEL_FORMAT_0RGB1555;
 struct retro_system_av_info avinfo;
 pid_t ffpidv = 0;
@@ -95,10 +98,10 @@ void RETRO_CALLCONV video_update(const void *data, unsigned width, unsigned heig
 	if (dump_every && (frame_counter % dump_every) == 0) {
 		char filename[PATH_MAX];
 		sprintf(filename, "%s/screenshot%06u.png", outputdir.c_str(), frame_counter);
-		dump_image(data, width, height, pitch, videofmt, filename);
+		dump_image(data, width, height, pitch, videofmt, scalf, filename);
 	}
 	if (ffpidv)
-		dump_image(data, width, height, pitch, videofmt, ffpipev[1]);
+		dump_image(data, width, height, pitch, videofmt, scalf, ffpipev[1]);
 }
 
 void RETRO_CALLCONV input_poll() {
@@ -154,11 +157,15 @@ int main(int argc, char **argv) {
 
 	// Dumps the specific frames (ie. 10 20)
 	parser.addArgument("--dump-frames", '*');
+	// Image scale factor
+	parser.addArgument("--image-scale", 1);
 	// Dumps a frame every N frames
 	parser.addArgument("--dump-frames-every", 1);
 	// Generates a video/audio from the video/audio streams
 	parser.addArgument("--dump-video", 1);
 	parser.addArgument("--dump-audio", 1);
+	// Instruct ffmpeg to use VAAPI encoding, much faster :)
+	parser.addArgument("--use-vaapi-device", 1);
 
 	// Dumps state saves every N frames
 	parser.addArgument("--dump-savestates-every", 1);
@@ -181,6 +188,10 @@ int main(int argc, char **argv) {
 	#endif
 	if (parser.gotArgument("output"))
 		outputdir = parser.retrieve<std::string>("output");
+	if (parser.gotArgument("image-scale"))
+		scalf = parser.retrieve<unsigned>("image-scale");
+	if (parser.gotArgument("use-vaapi-device"))
+		vaapidev = parser.retrieve<std::string>("use-vaapi-device");
 	if (parser.gotArgument("dump-frames-every"))
 		dump_every = parser.retrieve<unsigned>("dump-frames-every");
 	if (parser.gotArgument("dump-savestates-every"))
@@ -266,12 +277,31 @@ int main(int argc, char **argv) {
 			close(ffpipev[1]);
 			dup2(ffpipev[0], 0);
 
-			execlp("ffmpeg", "ffmpeg", "-nostats",
-				"-f", "image2pipe",
-				"-framerate", std::to_string(avinfo.timing.fps).c_str(),
-				"-i", "-", "-vf", "format=yuv444p",
-				"-c:v", "libx264",
-				videop.c_str(), NULL);
+			// Use H264 primer of course :) Scale factor is tricky, using sqrt(scalef) as an aprox.
+			unsigned bytesps = avinfo.geometry.max_width * avinfo.geometry.max_height * avinfo.timing.fps * 3;
+			unsigned kbps = bytesps * 0.07f * 0.001f * sqrtf(scalf);
+
+			if (vaapidev.empty()) {
+				execlp("ffmpeg", "ffmpeg", "-nostats",
+					"-f", "image2pipe",
+					"-framerate", std::to_string(avinfo.timing.fps).c_str(),
+					"-i", "-",
+					"-vf", "format=yuv444p",
+					"-tune", "animation",
+					"-c:v", "libx264", "-crf", "12",
+					videop.c_str(), NULL);
+			} else {
+				execlp("ffmpeg", "ffmpeg", "-nostats",
+					"-vaapi_device", vaapidev.c_str(),
+					"-f", "image2pipe",
+					"-framerate", std::to_string(avinfo.timing.fps).c_str(),
+					"-i", "-",
+					"-vf", "format=nv12,hwupload",
+					"-tune", "animation",
+					"-c:v", "h264_vaapi", "-qp", "18",
+					"-b:v", std::to_string(kbps) + "k",
+					videop.c_str(), NULL);
+			}
 		}
 	}
 
