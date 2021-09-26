@@ -3,6 +3,7 @@
 // Released under the GPL2 license
 
 #include <iostream>
+#include <fstream>
 #include <stdio.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -37,6 +38,8 @@ const std::unordered_map<std::string, unsigned> buttons = {
 	{"down",   RETRO_DEVICE_ID_JOYPAD_DOWN},
 	{"left",   RETRO_DEVICE_ID_JOYPAD_LEFT},
 	{"right",  RETRO_DEVICE_ID_JOYPAD_RIGHT},
+	{"l",      RETRO_DEVICE_ID_JOYPAD_L},
+	{"r",      RETRO_DEVICE_ID_JOYPAD_R},
 };
 std::unordered_map<unsigned, unsigned> icmds;
 std::string systemdir;
@@ -45,7 +48,6 @@ std::string vaapidev;
 unsigned frame_counter = 0;
 unsigned dump_every = 0;
 unsigned save_dump_every = 0;
-unsigned scalf = 1;
 enum retro_pixel_format videofmt = RETRO_PIXEL_FORMAT_0RGB1555;
 struct retro_system_av_info avinfo;
 pid_t ffpidv = 0;
@@ -91,17 +93,16 @@ bool RETRO_CALLCONV env_callback(unsigned cmd, void *data) {
 }
 
 void RETRO_CALLCONV video_update(const void *data, unsigned width, unsigned height, size_t pitch) {
-	frame_counter++;
 	if (!data)
 		return;
 
 	if (dump_every && (frame_counter % dump_every) == 0) {
 		char filename[PATH_MAX];
 		sprintf(filename, "%s/screenshot%06u.png", outputdir.c_str(), frame_counter);
-		dump_image(data, width, height, pitch, videofmt, scalf, filename);
+		dump_image(data, width, height, pitch, videofmt, filename);
 	}
 	if (ffpidv)
-		dump_image(data, width, height, pitch, videofmt, scalf, ffpipev[1]);
+		dump_image(data, width, height, pitch, videofmt, ffpipev[1]);
 }
 
 void RETRO_CALLCONV input_poll() {
@@ -131,6 +132,15 @@ int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned inde
 void alarmhandler(int signal) {
 	std::cerr << "Alarm triggered" << std::endl;
 	exit(-1);
+}
+
+void parse_input(std::string entry) {
+	auto p = entry.find(':');
+	if (p != std::string::npos) {
+		std::string b = entry.substr(p+1);
+		if (buttons.count(b))
+			icmds[atoi(entry.c_str())] |= (1 << buttons.at(b));
+	}
 }
 
 int main(int argc, char **argv) {
@@ -173,14 +183,16 @@ int main(int argc, char **argv) {
 	// Loads state at the beggining
 	parser.addArgument("--load-savestate", 1);
 
-	// Read input commands
+	// Read input commands (or via pipe/socket)
 	parser.addArgument("-i", "--input", 1);
+	parser.addArgument("--input-channel", 1);
 
 	// TODO: dump other stuff
 
 	parser.parse(argc, (const char **)argv);
 
 	// Read the args
+	unsigned scalf = 1;
 	std::string corefile, statefile;
 	std::string rom_file = parser.retrieve<std::string>("r");
 	#ifndef STATIC_CORE
@@ -209,15 +221,16 @@ int main(int argc, char **argv) {
 	if (parser.gotArgument("input")) {
 		std::istringstream spr(parser.retrieve<std::string>("input"));
 		std::string entry;
-		while (spr >> entry) {
-			auto p = entry.find(':');
-			if (p != std::string::npos) {
-				std::string b = entry.substr(p+1);
-				if (buttons.count(b))
-					icmds[atoi(entry.c_str())] |= (1 << buttons.at(b));
-			}
-		}
+		while (spr >> entry)
+			parse_input(entry);
 	}
+	if (parser.gotArgument("input-channel")) {
+		std::ifstream fstr(parser.retrieve<std::string>("input-channel"));
+		std::string entry;
+		while (fstr >> entry)
+			parse_input(entry);
+	}
+
 	bool use_alarm = !parser.gotArgument("no-alarm");
 
 	core_functions_t *retrofns = load_core(corefile.c_str());
@@ -280,26 +293,30 @@ int main(int argc, char **argv) {
 			// Use H264 primer of course :) Scale factor is tricky, using sqrt(scalef) as an aprox.
 			unsigned bytesps = avinfo.geometry.max_width * avinfo.geometry.max_height * avinfo.timing.fps * 3;
 			unsigned kbps = bytesps * 0.07f * 0.001f * sqrtf(scalf);
+			std::string filter = "format=yuv444p";
+			if (scalf > 1)
+				filter += ",scale=iw*" + std::to_string(scalf) + ":ih*" + std::to_string(scalf);
 
 			if (vaapidev.empty()) {
 				execlp("ffmpeg", "ffmpeg", "-nostats",
 					"-f", "image2pipe",
 					"-framerate", std::to_string(avinfo.timing.fps).c_str(),
 					"-i", "-",
-					"-vf", "format=yuv444p",
+					"-vf", filter.c_str(),
 					"-tune", "animation",
 					"-c:v", "libx264", "-crf", "12",
 					videop.c_str(), NULL);
 			} else {
+				filter += ",format=nv12,hwupload";
 				execlp("ffmpeg", "ffmpeg", "-nostats",
 					"-vaapi_device", vaapidev.c_str(),
 					"-f", "image2pipe",
 					"-framerate", std::to_string(avinfo.timing.fps).c_str(),
 					"-i", "-",
-					"-vf", "format=nv12,hwupload",
+					"-vf", filter.c_str(),
 					"-tune", "animation",
 					"-c:v", "h264_vaapi", "-qp", "18",
-					"-b:v", std::to_string(kbps) + "k",
+					"-b:v", (std::to_string(kbps) + "k").c_str(),
 					videop.c_str(), NULL);
 			}
 		}
@@ -341,7 +358,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	for (unsigned i = 0; i < maxframes; i++) {
+	while (frame_counter < maxframes) {
 		if (use_alarm)
 			alarm(frametimeout);
 		retrofns->core_run();
@@ -359,6 +376,7 @@ int main(int argc, char **argv) {
 			}
 			free(serstate);
 		}
+		frame_counter++;
 	}
 
 	alarm(0);

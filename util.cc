@@ -51,19 +51,10 @@ void *image_convert(const void *data, unsigned width, unsigned height, size_t pi
 	return buffer;
 }
 
-img_conv scalers[] = {
-	NULL,
-	image_scale<1>, image_scale<2>, image_scale<3>, image_scale<4>,
-	image_scale<5>, image_scale<6>, image_scale<7>, image_scale<8>,
-};
-
-void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, unsigned factor, const char *filename) {
+void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, const char *filename) {
 	void *convimg = image_convert(data, width, height, pitch, fmt);
-	void *scalimg = factor > 1 ? scalers[factor](convimg, width, height) : convimg;
-	stbi_write_png(filename, width * factor, height * factor, 3, scalimg, 3 * width * factor);
+	stbi_write_png(filename, width, height, 3, convimg, 3 * width);
 	free(convimg);
-	if (scalimg != convimg)
-		free(scalimg);
 }
 
 static void cb_write(void *context, void *data, int size) {
@@ -71,12 +62,9 @@ static void cb_write(void *context, void *data, int size) {
 	write(fd, data, size);
 }
 
-void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, unsigned factor, int fd) {
+void dump_image(const void *data, unsigned width, unsigned height, size_t pitch, enum retro_pixel_format fmt, int fd) {
 	void *convimg = image_convert(data, width, height, pitch, fmt);
-	void *scalimg = factor > 1 ? scalers[factor](convimg, width, height) : convimg;
-	stbi_write_bmp_to_func(cb_write, &fd, width * factor, height * factor, 3, scalimg);
+	stbi_write_bmp_to_func(cb_write, &fd, width, height, 3, convimg);
 	free(convimg);
-	if (scalimg != convimg)
-		free(scalimg);
 }
 
