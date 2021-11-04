@@ -3,43 +3,42 @@
 // Released under the GPL2 license
 
 #include <cstdlib>
-#include <dlfcn.h>
 #include "loader.h"
 
 #ifndef STATIC_CORE
 
 core_functions_t *load_core(const char *filename) {
-	void *libhandle = dlopen(filename, RTLD_LAZY | RTLD_LOCAL);
+	LIBHANDLE libhandle = LOAD_LIBRARY(filename);
 	if (!libhandle)
 		return NULL;
 
 	core_functions_t *fns = (core_functions_t*)malloc(sizeof(core_functions_t));
 	
-	fns->core_init = (core_action_fnt)dlsym(libhandle, "retro_init");
-	fns->core_deinit = (core_action_fnt)dlsym(libhandle, "retro_deinit");
-	fns->core_run = (core_action_fnt)dlsym(libhandle, "retro_run");
-	fns->core_reset = (core_action_fnt)dlsym(libhandle, "retro_reset");
-	fns->core_get_info = (core_info_fnt)dlsym(libhandle, "retro_get_system_info");
-	fns->core_load_game = (core_loadg_fnt)dlsym(libhandle, "retro_load_game");
+	fns->core_init = (core_action_fnt)LOAD_SYMBOL(libhandle, "retro_init");
+	fns->core_deinit = (core_action_fnt)LOAD_SYMBOL(libhandle, "retro_deinit");
+	fns->core_run = (core_action_fnt)LOAD_SYMBOL(libhandle, "retro_run");
+	fns->core_reset = (core_action_fnt)LOAD_SYMBOL(libhandle, "retro_reset");
+	fns->core_get_info = (core_info_fnt)LOAD_SYMBOL(libhandle, "retro_get_system_info");
+	fns->core_load_game = (core_loadg_fnt)LOAD_SYMBOL(libhandle, "retro_load_game");
 
-	fns->core_set_env_function = (core_set_environment_fnt)dlsym(libhandle, "retro_set_environment");
-	fns->core_set_video_refresh_function = (core_set_video_refresh_fnt)dlsym(libhandle, "retro_set_video_refresh");
-	fns->core_set_audio_sample_function = (core_set_audio_sample_fnt)dlsym(libhandle, "retro_set_audio_sample");
-	fns->core_set_audio_sample_batch_function = (core_set_audio_sample_batch_fnt)dlsym(libhandle, "retro_set_audio_sample_batch");
-	fns->core_set_input_poll_function = (core_set_input_poll_fnt)dlsym(libhandle, "retro_set_input_poll");
-	fns->core_set_input_state_function = (core_set_input_state_fnt)dlsym(libhandle, "retro_set_input_state");
+	fns->core_set_env_function = (core_set_environment_fnt)LOAD_SYMBOL(libhandle, "retro_set_environment");
+	fns->core_set_video_refresh_function = (core_set_video_refresh_fnt)LOAD_SYMBOL(libhandle, "retro_set_video_refresh");
+	fns->core_set_audio_sample_function = (core_set_audio_sample_fnt)LOAD_SYMBOL(libhandle, "retro_set_audio_sample");
+	fns->core_set_audio_sample_batch_function = (core_set_audio_sample_batch_fnt)LOAD_SYMBOL(libhandle, "retro_set_audio_sample_batch");
+	fns->core_set_input_poll_function = (core_set_input_poll_fnt)LOAD_SYMBOL(libhandle, "retro_set_input_poll");
+	fns->core_set_input_state_function = (core_set_input_state_fnt)LOAD_SYMBOL(libhandle, "retro_set_input_state");
 
-	fns->core_serialize = (core_serialize_fnt)dlsym(libhandle, "retro_serialize");
-	fns->core_serialize_size = (core_serialize_size_fnt)dlsym(libhandle, "retro_serialize_size");
-	fns->core_unserialize = (core_unserialize_fnt)dlsym(libhandle, "retro_unserialize");
-	fns->core_get_system_av_info = (core_get_system_av_info_fnt)dlsym(libhandle, "retro_get_system_av_info");
+	fns->core_serialize = (core_serialize_fnt)LOAD_SYMBOL(libhandle, "retro_serialize");
+	fns->core_serialize_size = (core_serialize_size_fnt)LOAD_SYMBOL(libhandle, "retro_serialize_size");
+	fns->core_unserialize = (core_unserialize_fnt)LOAD_SYMBOL(libhandle, "retro_unserialize");
+	fns->core_get_system_av_info = (core_get_system_av_info_fnt)LOAD_SYMBOL(libhandle, "retro_get_system_av_info");
 	fns->handle = libhandle;
 
 	return fns;
 }
 
 void unload_core(core_functions_t *core) {
-	dlclose(core->handle);
+	UNLOAD_LIBRARY(core->handle);
 	free(core);
 }
 

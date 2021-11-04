@@ -7,6 +7,20 @@
 
 #include "libretro.h"
 
+#ifdef WIN32
+  #include <windows.h>
+  #define LIBHANDLE HMODULE
+  #define LOAD_LIBRARY(path) LoadLibraryA(path)
+  #define UNLOAD_LIBRARY(lib) FreeLibrary(lib)
+  #define LOAD_SYMBOL(lib, name) GetProcAddress(lib, name)
+#else
+  #include <dlfcn.h>
+  #define LIBHANDLE void*
+  #define LOAD_LIBRARY(path) dlopen(path, RTLD_LAZY | RTLD_LOCAL)
+  #define UNLOAD_LIBRARY(lib) dlclose(lib)
+  #define LOAD_SYMBOL(lib, name) dlsym(lib, name)
+#endif
+
 // Function types
 typedef RETRO_CALLCONV void (*core_info_fnt)(struct retro_system_info *info);
 typedef RETRO_CALLCONV void (*core_action_fnt)(void);
@@ -40,7 +54,7 @@ typedef struct {
 	core_unserialize_fnt core_unserialize;
 	core_get_system_av_info_fnt core_get_system_av_info;
 
-	void *handle;
+	LIBHANDLE handle;
 } core_functions_t;
 
 // Loads the core and gets a handler to its functions

@@ -8,13 +8,21 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/wait.h>
 #include <signal.h>
 #include <math.h>
 #include "argparse.hpp"
 #include "libretro.h"
 #include "util.h"
 #include "loader.h"
+
+#ifndef WIN32
+  #include <sys/wait.h>
+  #define set_alarm(c) alarm(c)
+  #define set_sighdlr(sig, hdl) signal(sig, hdl)
+#else
+  #define set_alarm(c) do {} while (0)
+  #define set_sighdlr(sig, hdl) do {} while (0)
+#endif	
 
 typedef RETRO_CALLCONV void (*core_info_function)(struct retro_system_info *info);
 typedef RETRO_CALLCONV void (*core_action_function)(void);
@@ -145,7 +153,7 @@ void parse_input(std::string entry) {
 
 int main(int argc, char **argv) {
 	// Set up alarm handler to ensure we can abort
-	signal(SIGALRM, alarmhandler);
+	set_sighdlr(SIGALRM, alarmhandler);
 
 	argparse::ArgumentParser parser;
 
@@ -279,6 +287,7 @@ int main(int argc, char **argv) {
 	retrofns->core_reset();
 	retrofns->core_get_system_av_info(&avinfo);
 
+	#ifndef WIN32
 	if (parser.gotArgument("dump-video")) {
 		std::string videop = parser.retrieve<std::string>("dump-video");
 		pipe(ffpipev);
@@ -342,6 +351,7 @@ int main(int argc, char **argv) {
 				audiop.c_str(), NULL);
 		}
 	}
+	#endif
 
 	if (!statefile.empty()) {
 		size_t ssize = retrofns->core_serialize_size();
@@ -360,7 +370,7 @@ int main(int argc, char **argv) {
 
 	while (frame_counter < maxframes) {
 		if (use_alarm)
-			alarm(frametimeout);
+			set_alarm(frametimeout);
 		retrofns->core_run();
 
 		if (save_dump_every && (frame_counter % save_dump_every) == 0) {
@@ -379,12 +389,13 @@ int main(int argc, char **argv) {
 		frame_counter++;
 	}
 
-	alarm(0);
+	set_alarm(0);
 	retrofns->core_deinit();
 	if (dptr)
 		free(dptr);
 	free(retrofns);
 
+	#ifndef WIN32
 	if (ffpida) {
 		close(ffpipea[1]);
 		waitpid(ffpida, NULL, 0);
@@ -393,6 +404,7 @@ int main(int argc, char **argv) {
 		close(ffpipev[1]);
 		waitpid(ffpidv, NULL, 0);
 	}
+	#endif
 }
 
 
