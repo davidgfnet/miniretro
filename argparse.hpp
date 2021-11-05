@@ -17,6 +17,20 @@ typedef std::map<std::string, size_t> IndexMap;
 #include <cassert>
 #include <algorithm>
 
+
+template<typename T>
+std::ostream& operator << (std::ostream& out, const std::vector<T>& v) {
+    out << "[";
+    for(unsigned long i = 0; i < v.size(); ++i) {
+        if (i > 0)
+            out << ", ";
+        out << v[i];
+    }
+    out << "]";
+
+    return out;
+}
+
 namespace argparse {
     // Modified from https://github.com/davisking/dlib/blob/master/dlib/algs.h
     template <typename T> struct is_standard_type        { const static bool value = false; };
@@ -54,26 +68,22 @@ namespace argparse {
     template <class Cond, class T = void>
     struct disable_if : public disable_if_c<Cond::value, T> {};
 
-    template <typename T>
-    T castTo(const std::string& item) {
-        std::istringstream sin(item);
-        T value;
-        sin >> value;
-        return value;
-    }
+}
 
-    // Do not parse std::string for spaces
-	template<>
-    std::string castTo(const std::string& item) {
-        return item;
-    }
+template<typename T>
+typename argparse::enable_if<
+    argparse::is_standard_type<T>,
+    std::istream&
+>::type operator >> (std::istream& in, std::vector<T>& v);
 
-    template <typename T>
-    std::string toString(const T& item) {
-        std::ostringstream sout;
-        sout << item;
-        return sout.str();
-    }
+template<typename T>
+typename argparse::enable_if<
+    argparse::is_standard_type<T>,
+    std::istream&
+>::type operator >> (std::istream& in, std::vector<std::vector<T> >& v);
+
+
+namespace argparse {
 
     void remove_space(std::string& str) {
         str.erase(
@@ -103,6 +113,27 @@ namespace argparse {
         str.erase(str.begin() + last_bracket);
     }
 
+    template <typename T>
+    T castTo(const std::string& item) {
+        std::istringstream sin(item);
+        T value;
+        sin >> value;
+        return value;
+    }
+
+    // Do not parse std::string for spaces
+	template<>
+    std::string castTo(const std::string& item) {
+        return item;
+    }
+
+    template <typename T>
+    std::string toString(const T& item) {
+        std::ostringstream sout;
+        sout << item;
+        return sout.str();
+    }
+
     /*! @class ArgumentParser
      *  @brief A simple command-line argument parser based on the design of
      *  python's parser of the same name.
@@ -127,7 +158,7 @@ namespace argparse {
      */
     class ArgumentParser {
     private:
-        class Argument;
+        struct Argument;
         typedef std::string String;
         typedef std::vector<String> StringVector;
         typedef std::vector<Argument> ArgumentVector;
@@ -451,19 +482,6 @@ namespace argparse {
             return arg.specified;
         }
     };
-}
-
-template<typename T>
-std::ostream& operator << (std::ostream& out, const std::vector<T>& v) {
-    out << "[";
-    for(unsigned long i = 0; i < v.size(); ++i) {
-        if (i > 0)
-            out << ", ";
-        out << v[i];
-    }
-    out << "]";
-
-    return out;
 }
 
 template<typename T>
