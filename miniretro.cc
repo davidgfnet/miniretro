@@ -50,6 +50,7 @@ const std::unordered_map<std::string, unsigned> buttons = {
 	{"r",      RETRO_DEVICE_ID_JOYPAD_R},
 };
 std::unordered_map<unsigned, unsigned> icmds;
+std::unordered_map<std::string, std::string> envvars;
 std::string systemdir;
 std::string outputdir = ".";
 std::string vaapidev;
@@ -71,11 +72,17 @@ void RETRO_CALLCONV logging_callback(enum retro_log_level level, const char *fmt
 }
 
 bool RETRO_CALLCONV env_callback(unsigned cmd, void *data) {
+	struct retro_variable *rvars = (struct retro_variable*)data;
+
 	switch (cmd) {
 	case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
 		videofmt = *(enum retro_pixel_format*)data;
 		return true;
 	case RETRO_ENVIRONMENT_GET_VARIABLE:
+		if (envvars.count(rvars->key)) {
+			rvars->value = envvars.at(rvars->key).c_str();
+			return true;
+		}
 		return false;
 	case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
 	case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
@@ -195,6 +202,10 @@ int main(int argc, char **argv) {
 	parser.addArgument("-i", "--input", 1);
 	parser.addArgument("--input-channel", 1);
 
+	// Retro read variables passed here
+	parser.addArgument("--envvar", '*');
+
+
 	// TODO: dump other stuff
 
 	parser.parse(argc, (const char **)argv);
@@ -237,6 +248,15 @@ int main(int argc, char **argv) {
 		std::string entry;
 		while (fstr >> entry)
 			parse_input(entry);
+	}
+
+	if (parser.gotArgument("envvar")) {
+		std::vector<std::string> vars = parser.retrieve<std::vector<std::string>>("envvar");
+		for (auto & var : vars) {
+			auto p = var.find('=');
+			if (p != std::string::npos)
+				envvars[var.substr(0, p)] = var.substr(p+1);
+		}
 	}
 
 	bool use_alarm = !parser.gotArgument("no-alarm");
