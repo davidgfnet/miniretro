@@ -376,16 +376,18 @@ int main(int argc, char **argv) {
 	if (!statefile.empty()) {
 		size_t ssize = retrofns->core_serialize_size();
 		FILE *fd = fopen(statefile.c_str(), "rb");
-		if (fd) {
-			void *serstate = malloc(ssize);
-			size_t bytecount = fread(serstate, 1, ssize, fd);
-			fclose(fd);
-			if (!retrofns->core_unserialize(serstate, bytecount)) {
-				std::cout << "Failed to load savestate " << statefile << std::endl;
-				return -1;
-			}
-			free(serstate);
+		if (!fd) {
+			std::cout << "Could not open savestate file " << statefile << std::endl;
+			return -1;
 		}
+		void *serstate = malloc(ssize);
+		size_t bytecount = fread(serstate, 1, ssize, fd);
+		fclose(fd);
+		if (!retrofns->core_unserialize(serstate, bytecount)) {
+			std::cout << "Failed to load savestate " << statefile << std::endl;
+			return -1;
+		}
+		free(serstate);
 	}
 
 	while (frame_counter < maxframes) {
