@@ -21,6 +21,7 @@ parser.add_argument('--system', dest='system', required=True, help='system direc
 parser.add_argument('--driver', dest='driver', type=str, default="./miniretro", help='Miniretro driver commandline')
 parser.add_argument('--frames', dest='frames', type=int, default=3200, help='Frames per game to run')
 parser.add_argument('--capture', dest='capture', type=int, default=1, help='Number of frames to capture')
+parser.add_argument('--random-capture', dest='randomcapture', type=int, default=0, help='Number of pseudo-random frames to capture')
 parser.add_argument('--record', dest='record', action="store_true", help='Record video and audio')
 parser.add_argument('--threads', dest='threads', type=int, default=8, help='CPUs (threads) to use')
 parser.add_argument('--input', dest='infiles', nargs='+', help='Set of files or directories to use as test files')
@@ -43,8 +44,20 @@ ctrl = ["%d:a %d:a %d:a %d:a %d:start %d:start %d:start %d:start" % (
 # Take the last frame and N-1 frames from start too
 frameevery = args.frames // args.capture
 
+def rndnums(seed, cnt):
+  a = 1140671485
+  c = 128201163
+  m = 2**24
+  r = []
+  for _ in range(cnt):
+    seed = (a*seed + c) & (m - 1)
+    r.append(seed)
+  return r
+
 def runcore(rom):
-  romid = hashlib.sha1(open(rom, "rb").read(_ROM_HASH_PREFIX)).hexdigest()[:12]
+  h = hashlib.sha1(open(rom, "rb").read(_ROM_HASH_PREFIX))
+  romid = h.hexdigest()[:12]
+  seed = int.from_bytes(h.digest()[:3])
   opath = os.path.join(args.output, romid)
   os.mkdir(opath)
   vfile = os.path.join(opath, "video.mp4")
@@ -53,10 +66,12 @@ def runcore(rom):
   eargs = []
 
   if args.record:
-    eargs = [
+    eargs += [
       "--dump-video", vfile,
       "--dump-audio", afile,
     ]
+  if args.randomcapture:
+    eargs += ["--dump-frames"] + [str(x % args.frames) for x in rndnums(seed, args.randomcapture)]
 
   starttime = time.time()
   with open(os.path.join(opath, "stdout"), "wb") as stdout:
