@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <set>
 #include <stdio.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -54,8 +55,9 @@ std::unordered_map<std::string, std::string> envvars;
 std::string systemdir;
 std::string outputdir = ".";
 std::string vaapidev;
+std::set<unsigned> shot_ts;
 unsigned frame_counter = 0;
-unsigned dump_every = 0;
+unsigned shot_every = 0;
 unsigned save_dump_every = 0;
 enum retro_pixel_format videofmt = RETRO_PIXEL_FORMAT_0RGB1555;
 struct retro_system_av_info avinfo;
@@ -111,7 +113,7 @@ void RETRO_CALLCONV video_update(const void *data, unsigned width, unsigned heig
 	if (!data)
 		return;
 
-	if (dump_every && (frame_counter % dump_every) == 0) {
+	if ((shot_every && (frame_counter % shot_every) == 0) || shot_ts.count(frame_counter)) {
 		char filename[PATH_MAX];
 		sprintf(filename, "%s/screenshot%06u.png", outputdir.c_str(), frame_counter);
 		dump_image(data, width, height, pitch, videofmt, filename);
@@ -223,8 +225,13 @@ int main(int argc, char **argv) {
 		scalf = parser.retrieve<unsigned>("image-scale");
 	if (parser.gotArgument("use-vaapi-device"))
 		vaapidev = parser.retrieve<std::string>("use-vaapi-device");
+	if (parser.gotArgument("dump-frames")) {
+		std::vector<std::string> framel = parser.retrieve<std::vector<std::string>>("dump-frames");
+		for (auto & f : framel)
+			shot_ts.insert(atoi(f.c_str()));
+	}
 	if (parser.gotArgument("dump-frames-every"))
-		dump_every = parser.retrieve<unsigned>("dump-frames-every");
+		shot_every = parser.retrieve<unsigned>("dump-frames-every");
 	if (parser.gotArgument("dump-savestates-every"))
 		save_dump_every = parser.retrieve<unsigned>("dump-savestates-every");
 	if (parser.gotArgument("load-savestate"))
