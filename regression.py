@@ -57,7 +57,7 @@ def rndnums(seed, cnt):
 def runcore(rom):
   h = hashlib.sha1(open(rom, "rb").read(_ROM_HASH_PREFIX))
   romid = h.hexdigest()[:12]
-  seed = int.from_bytes(h.digest()[:3])
+  seed = int.from_bytes(h.digest()[:3], byteorder='big', signed=False)
   opath = os.path.join(args.output, romid)
   os.mkdir(opath)
   vfile = os.path.join(opath, "video.mp4")
