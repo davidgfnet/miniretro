@@ -35,6 +35,7 @@ for elem in args.infiles:
   else:
     for root, dirs, files in os.walk(os.path.abspath(elem), topdown=False):
       for name in files:
+        if name and name[0] == '.': continue
         roms.append(os.path.join(root, name))
 
 os.mkdir(args.output)
