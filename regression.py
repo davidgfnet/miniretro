@@ -43,7 +43,7 @@ os.mkdir(args.output)
 ctrl = ["%d:a %d:a %d:a %d:a %d:start %d:start %d:start %d:start" % (
    i, i+1, i+2, i+30, i+60, i+90, i+91, i+92) for i in range(0, args.frames, 300)]
 # Take the last frame and N-1 frames from start too
-frameevery = args.frames // args.capture if args.capture else args.frames + 100
+frameevery = args.frames // args.capture if args.capture else None
 
 def rndnums(seed, cnt):
   a = 1140671485
@@ -66,6 +66,8 @@ def runcore(rom):
   rfile = os.path.join(opath, "video.mkv")
   eargs = []
 
+  if frameevery:
+    eargs += [ "--dump-frames-every", str(frameevery) ]
   if args.record:
     eargs += [
       "--dump-video", vfile,
@@ -84,7 +86,6 @@ def runcore(rom):
          "--output", opath,
          "--system", args.system,
          "--input", " ".join(ctrl),
-         "--dump-frames-every", str(frameevery),
          "--frames", str(args.frames + 3),  # Ensure we get a final frame
          ] + eargs,
         stdout=stdout, stderr=stderr,
