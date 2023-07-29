@@ -43,7 +43,7 @@ os.mkdir(args.output)
 ctrl = ["%d:a %d:a %d:a %d:a %d:start %d:start %d:start %d:start" % (
    i, i+1, i+2, i+30, i+60, i+90, i+91, i+92) for i in range(0, args.frames, 300)]
 # Take the last frame and N-1 frames from start too
-frameevery = args.frames // args.capture
+frameevery = args.frames // args.capture if args.capture else args.frames + 100
 
 def rndnums(seed, cnt):
   a = 1140671485
@@ -74,9 +74,9 @@ def runcore(rom):
   if args.randomcapture:
     eargs += ["--dump-frames"] + [str(x % args.frames) for x in rndnums(seed, args.randomcapture)]
 
-  starttime = time.time()
   with open(os.path.join(opath, "stdout"), "wb") as stdout:
     with open(os.path.join(opath, "stderr"), "wb") as stderr:
+      starttime = time.time()
       spcall = subprocess.Popen(
         args.driver.split(" ") + 
         ["--core", args.core,
@@ -90,11 +90,12 @@ def runcore(rom):
         stdout=stdout, stderr=stderr,
         preexec_fn=lambda : os.nice(10))
       spcall.wait()
+      endtime = time.time()
   subprocess.Popen(["gzip", "-5", os.path.join(opath, "stdout")]).wait()
   subprocess.Popen(["gzip", "-5", os.path.join(opath, "stderr")]).wait()
   with open(os.path.join(opath, "results.json"), "w") as metafd:
     metafd.write(json.dumps({
-      "runtime": time.time() - starttime,
+      "runtime": endtime - starttime,
       "exitcode": spcall.returncode,
       "rom": os.path.basename(rom),
     }))
