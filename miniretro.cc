@@ -11,6 +11,8 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <math.h>
+#include <chrono>
+
 #include "argparse.hpp"
 #include "libretro.h"
 #include "util.h"
@@ -397,6 +399,7 @@ int main(int argc, char **argv) {
 		free(serstate);
 	}
 
+	auto start_time = std::chrono::high_resolution_clock::now();
 	while (frame_counter < maxframes) {
 		if (use_alarm)
 			set_alarm(frametimeout);
@@ -417,6 +420,10 @@ int main(int argc, char **argv) {
 		}
 		frame_counter++;
 	}
+	auto end_time = std::chrono::high_resolution_clock::now();
+	auto dnano = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time-start_time).count();
+
+	std::cout << "Total execution time " << dnano << " nanoseconds" << std::endl;
 
 	set_alarm(0);
 	retrofns->core_deinit();
