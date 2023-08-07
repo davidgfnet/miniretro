@@ -426,6 +426,7 @@ int main(int argc, char **argv) {
 	std::cout << "Total execution time " << dnano << " nanoseconds" << std::endl;
 
 	set_alarm(0);
+	retrofns->core_unload_game();
 	retrofns->core_deinit();
 	if (dptr)
 		free(dptr);

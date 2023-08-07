@@ -20,6 +20,7 @@ core_functions_t *load_core(const char *filename) {
 	fns->core_reset = (core_action_fnt)LOAD_SYMBOL(libhandle, "retro_reset");
 	fns->core_get_info = (core_info_fnt)LOAD_SYMBOL(libhandle, "retro_get_system_info");
 	fns->core_load_game = (core_loadg_fnt)LOAD_SYMBOL(libhandle, "retro_load_game");
+	fns->core_unload_game = (core_unloadg_fnt)LOAD_SYMBOL(libhandle, "retro_unload_game");
 
 	fns->core_set_env_function = (core_set_environment_fnt)LOAD_SYMBOL(libhandle, "retro_set_environment");
 	fns->core_set_video_refresh_function = (core_set_video_refresh_fnt)LOAD_SYMBOL(libhandle, "retro_set_video_refresh");
@@ -58,6 +59,7 @@ core_functions_t *load_core(const char *filename) {
 	fns->core_reset = &retro_reset;
 	fns->core_get_info = &retro_get_system_info;
 	fns->core_load_game = &retro_load_game;
+	fns->core_unload_game = &retro_unload_game;
 
 	fns->core_set_env_function = &retro_set_environment;
 	fns->core_set_video_refresh_function = &retro_set_video_refresh;

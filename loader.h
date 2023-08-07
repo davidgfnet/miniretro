@@ -25,6 +25,7 @@
 typedef RETRO_CALLCONV void (*core_info_fnt)(struct retro_system_info *info);
 typedef RETRO_CALLCONV void (*core_action_fnt)(void);
 typedef RETRO_CALLCONV bool (*core_loadg_fnt)(const struct retro_game_info *game);
+typedef RETRO_CALLCONV void (*core_unloadg_fnt)(void);
 typedef RETRO_CALLCONV void (*core_set_environment_fnt)(retro_environment_t);
 typedef RETRO_CALLCONV void (*core_set_video_refresh_fnt)(retro_video_refresh_t);
 typedef RETRO_CALLCONV void (*core_set_audio_sample_fnt)(retro_audio_sample_t);
@@ -43,6 +44,7 @@ typedef struct {
 	core_action_fnt core_reset;
 	core_info_fnt   core_get_info;
 	core_loadg_fnt  core_load_game;
+	core_unloadg_fnt core_unload_game;
 	core_set_environment_fnt core_set_env_function;
 	core_set_video_refresh_fnt core_set_video_refresh_function;
 	core_set_audio_sample_fnt core_set_audio_sample_function;
