@@ -25,8 +25,10 @@
             {% if run %}
               Runtime: {{ "%0.2f" % run["runtime"] }}s <br/>
               Exit code: {{ run["exitcode"] }} <br/>
-              {% for img in run["images"] %}
-                <img src="data:image/png;base64, {{ base64fn(img["data"]) }}" alt="{{ img["name"] }}"/> <br/>
+              {% for fn, img in sorted(run["images"].items()) %}
+                {% if not filterdiff or img["diff"] %}
+                  <img src="data:image/png;base64, {{ base64fn(img["data"]) }}" alt="{{ img["name"] }}"/> <br/>
+                {% endif %}
               {% endfor %}
             {% else %}
               Missing data
@@ -43,7 +45,7 @@
             Runtime: {{ "%0.2f" % entry["runtime"] }}s <br/>
             Exit code: {{ entry["exitcode"] }}</div>
           <div class="col-8 themed-grid-col">
-          {% for img in entry["images"] %}
+          {% for fn, img in sorted(run["images"].items()) %}
             <img src="data:image/png;base64, {{ base64fn(img["data"]) }}" alt="{{ img["name"] }}"/>
           {% endfor %}
           </div>
